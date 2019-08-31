@@ -89,7 +89,7 @@
 
     void remove_semaphore(int semid)
     {
-        if((semctl(semid, MUTEX, IPC_RMID, 0)) < 0)
+        if((semctl(semid, MUTEX1, IPC_RMID, 0)) < 0)
         {
             printf("ERROR on semaphore removal\n");
             // do not exit in case of system call failure
@@ -156,7 +156,15 @@
         
         // initialize semaphore to 1 => unlocked
         arg.val=1;
-        if((semctl(semID, MUTEX, SETVAL, arg)) < 0) // SETVAL = Setting the value of semval to arg.val 
+        if((semctl(semID, MUTEX1, SETVAL, arg)) < 0) // SETVAL = Setting the value of semval to arg.val 
+        {
+            printf("Error on intializing MUTEX\n");
+            _exit(1);
+        }
+        else
+            printf("MUTEX successful\n");          //mutex 
+        arg.val=1;
+        if((semctl(semID, MUTEX2, SETVAL, arg)) < 0) // SETVAL = Setting the value of semval to arg.val 
         {
             printf("Error on intializing MUTEX\n");
             _exit(1);
@@ -255,7 +263,7 @@ int PID_MATCH = 0;
         }
      //---------------------------------------------------creating the semaphores----------------------------------------------------------
 
-        SEMID=request_semaphore_set(5); //posoi simaforoi tha dimiourgithoun 
+        SEMID=request_semaphore_set(6); //posoi simaforoi tha dimiourgithoun 
         init_semaphore_set(SEMID);
         //remove_semaphore(SEMID);
 
@@ -303,17 +311,20 @@ int PID_MATCH = 0;
         strncpy(prod[0].buf,buf,100);
 
         ////////////////////////////
+        down(SEMID,MUTEX1);
         down(SEMID,semWP); //MPAINW GIA NA KANW WRITE
         printf("Producer %d Struct with pid %d and message is%s\n", pid, prod[0].pid, prod[0].buf);
 
         memcpy(&shm[0],&prod[0],sizeof(msg)); // kanw copy apo tin topiki mnimi stin shared mem
         ////////////////////////////                
         up(SEMID,semRC);
+        up(SEMID,MUTEX1);
 
         //sleep(5);
         
 
         printf("Wait for consumer\n");
+        down(SEMID,MUTEX2);
         down(SEMID,semRP);
         memcpy(&prod[1],&shm[1],sizeof(msg)); // pairnw apo tin shared mem to struct 
         printf("Producer %d got Struct %d, %s\n", pid, prod[1].pid, prod[1].buf);
@@ -322,6 +333,7 @@ int PID_MATCH = 0;
             PID_MATCH++;
         }
         up(SEMID,semWC);
+        up(SEMID,MUTEX2);
         }
       } else { // this is the Consumer
 
