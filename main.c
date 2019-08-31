@@ -199,6 +199,22 @@
         }else
              printf("semRP successful\n");  
     }
+int PID_MATCH = 0;
+    void sigintHandler(int sig_num) 
+        { 
+            /* Reset handler to catch SIGINT next time. 
+               Refer http://en.cppreference.com/w/c/program/signal */
+            signal(SIGQUIT, sigintHandler); 
+        }
+    void sigintHandler2(int sig_num) 
+        { 
+            /* Reset handler to catch SIGINT next time. 
+               Refer http://en.cppreference.com/w/c/program/signal */
+            signal(SIGQUIT, sigintHandler); 
+            printf("exit child %d\n", PID_MATCH);
+            exit(PID_MATCH);
+        }
+
     //-----------------------------------------------------------------------main-------------------------------------------------------------------------- 
     int main(int argc, char * argv[]) {
 
@@ -255,7 +271,8 @@
       }
       //ta processes P
       if (P == 0) {
-
+        signal(SIGQUIT, sigintHandler2);
+        //PID_MATCH++;
         while(1){
         pid = getpid();
 
@@ -273,7 +290,7 @@
           printf("The file is empty\n");
           return (0);
         }
-        sleep(2);
+        
         rline = rand() % (flines + 1);
 
         rewind(fp); // gia na paei stin arxi pali
@@ -300,6 +317,10 @@
         down(SEMID,semRP);
         memcpy(&prod[1],&shm[1],sizeof(msg)); // pairnw apo tin shared mem to struct 
         printf("Producer %d got Struct %d, %s\n", pid, prod[1].pid, prod[1].buf);
+        if (prod[1].pid == pid)
+        {
+            PID_MATCH++;
+        }
         up(SEMID,semWC);
         }
       } else { // this is the Consumer
@@ -351,7 +372,15 @@
 
                 
             }
-             
+            signal(SIGQUIT, sigintHandler);
+            kill(0,SIGQUIT);
+            int exit_pid_match=0;
+            int sum = 0;
+            for(int i=0; i<num_of_childs; i++){
+                waitpid(-1, &exit_pid_match,0);
+                sum+=WEXITSTATUS(exit_pid_match);
+            }
+            printf("%d\n", sum);
         }           
       //detach_shared_mem(shm);
       //remove_shared_mem(shmid);
