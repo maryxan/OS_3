@@ -164,7 +164,7 @@
         else
             printf("MUTEX successful\n");          //mutex 
         
-        arg.val = 0;
+        arg.val = 1;
 
         // initialize semaphore to 1 => unlocked
         if((semctl(semID, semWC, SETVAL, arg)) < 0)
@@ -183,7 +183,7 @@
         }else
             printf("semP successful\n");
 
-        arg.val = 1;
+        arg.val = 0;
         // initialize semaphore to 1 => unlocked
         if ((semctl(semID, semRC, SETVAL, arg)) < 0)  //consumer READ
         {
@@ -255,12 +255,10 @@
       }
       //ta processes P
       if (P == 0) {
-        //while(1){
-        pid = getpid();
-        printf("im a child with pid %d and ppid %d\n", getpid(), getppid());
 
-        //down(SEMID,semWP);
-        //down(SEMID,MUTEX);
+        while(1){
+        pid = getpid();
+
         //--------------------------------------------------- code to read file ------------------------------------------------------------------
         srand(time(NULL));
         if (!(fp = fopen("atext.txt", "r"))) {
@@ -275,56 +273,45 @@
           printf("The file is empty\n");
           return (0);
         }
-
+        sleep(2);
         rline = rand() % (flines + 1);
 
         rewind(fp); // gia na paei stin arxi pali
 
         for (i = 0; i < rline; ++i)
         fgets(buf, sizeof(buf), fp); // to random str apothikevetai sto buf[100]
-        printf("the chosen line is %s\n", buf);
-        //up(SEMID,MUTEX);
-        //up(SEMID,semWP);
+        //------------------------------------------------------------------------------------------------------------------------------------------       
         
         prod[0].pid=pid;
         strncpy(prod[0].buf,buf,100);
 
-        printf("Struct with pid %d and message is%s\n", prod[0].pid, prod[0].buf);
+        ////////////////////////////
+        down(SEMID,semWP); //MPAINW GIA NA KANW WRITE
+        printf("Producer %d Struct with pid %d and message is%s\n", pid, prod[0].pid, prod[0].buf);
 
         memcpy(&shm[0],&prod[0],sizeof(msg)); // kanw copy apo tin topiki mnimi stin shared mem
+        ////////////////////////////                
+        up(SEMID,semRC);
 
-        sleep(5);
+        //sleep(5);
+        
+
         printf("Wait for consumer\n");
+        down(SEMID,semRP);
         memcpy(&prod[1],&shm[1],sizeof(msg)); // pairnw apo tin shared mem to struct 
-        printf("Copy from Shared memory\n");
-        printf("Struct %d, %s\n", prod[1].pid, prod[1].buf);
-
-        //---------------------------------------------------
-
-        //  sleep(5);
-        //  break;
-        //shm[0].pid = 6;
-        //strncpy(shm[0].buf, buf,100);
-        //----------------------------------------------------------------------------------------------------------------------------------------------------
-        //}
+        printf("Producer %d got Struct %d, %s\n", pid, prod[1].pid, prod[1].buf);
+        up(SEMID,semWC);
+        }
       } else { // this is the Consumer
-            //for (int i = 0; i < K ; i++)
-            //{
-                //if (i == K){
-                    //flag = 1;
-                    //break;
-                //}
-                //else{
-                    msg con[2];
-                    printf("im a parent\n");
-                    sleep(1);
-                    memcpy(&con[0],&shm[0],sizeof(msg)); // pairnw apo tin shared mem to struct 
-                    printf("Struct %d, %s\n", con[0].pid, con[0].buf);
-                    // char *in = con->buf;
-                    // printf("this is the input from the consumer%s\n",in);
-                    //con->pid=999;
-                    //strncpy(con->buf,"AEK",100);
 
+            for (int i = 0; i < K ; i++)
+            {
+                    //sleep(1);
+                    down(SEMID,semRC); // O CONSUMER DIAVAZEI TO MINIMA
+                    memcpy(&con[0],&shm[0],sizeof(msg)); // pairnw apo tin shared mem to struct 
+                    printf("Consumer get Struct %d, %s\n", con[0].pid, con[0].buf);
+                    
+                    up(SEMID,semWP);
                     //------------------------------------------------------- md5 the string -----------------------------------------------------------------
 
                     //use unsigned char
@@ -332,9 +319,7 @@
                     char in[256];
                     strcpy(in,con[0].buf);
                     //char *input = buf;
-                    printf("input is %s\n",in);
                     int length = strlen(in) -1 ;
-                    printf("length is %d\n",length);
                     int ii=0;
 
                     // don't miss the underscore after MD5
@@ -351,22 +336,21 @@
                     }
 
                     MD5_Final(digest, &md5);
-                    printf("digest is: \n");
                     for(ii = 0; ii < 16; ii++) {
                         //con->buf[ii]=digest[ii];
                         sprintf(in+ii*2,"%02x", digest[ii]);
                     }
-                    printf("\n");
-                    printf("%s\n",in);
+                    down(SEMID,semWC);
                     strncpy(con[1].buf,in,100);
                     con[1].pid = con[0].pid;
-                    printf("%d, %s\n",con[1].pid,con[1].buf);
+                    printf("Consumer Write %d, %s\n",con[1].pid,con[1].buf);
                     memcpy(&shm[1],&con[1],sizeof(msg)); // to kanw cpy stin topiki mnimi
-                    sleep(3);    
+                    //sleep(3);
+                    up(SEMID,semRP);    
         //----------------------------------------------------------------------------------------------------------------------------------------------------
 
-                 //}
-            //}
+                
+            }
              
         }           
       //detach_shared_mem(shm);
