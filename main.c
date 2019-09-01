@@ -1,51 +1,28 @@
     #include <stdio.h>
-
     #include <stdlib.h>
-
     #include <unistd.h>
-
     #include <sys/types.h>
-
     #include <sys/wait.h>
-
     #include "header.h"
-
     #include <sys/ipc.h>
-
     #include <sys/sem.h>
-
     #include <sys/shm.h>
-
     #include <sys/signal.h>
-
     #include <sys/times.h>
-
     #include <errno.h>
-
     #include <time.h>
-
     #include <string.h>
-
     #include <openssl/md5.h>
-
     #include <stdint.h>
-    
     #include <openssl/hmac.h>
-
     #include <semaphore.h>
 
-    
     //---------------------------------------------------------------------structs---------------------------------------------------------------------------
     typedef struct msg {
       int pid;
       char buf[100];
     } msg;
 
-    typedef struct stream {
-      // structure within structure
-      struct msg in ;
-      struct msg out;
-    } stream;
     //---------------------------------------------------------------------shared memory-------------------------------------------------------------------------------
 
       msg * attach(int shmid) {
@@ -53,7 +30,7 @@
 
       if ((shmem =(msg *) shmat(shmid, NULL, 0)) == NULL) {
         printf("ERROR on mem attach\n");
-        _exit(1);
+        exit(1);
       }
 
       return shmem;
@@ -79,10 +56,8 @@
         if((semid=semget(IPC_PRIVATE, num_of_semaphores, 0666 | IPC_CREAT)) < 0)
         {
             printf("ERROR on sem set\n");
-            _exit(1);
+            exit(1);
         }
-        else
-            printf("successful request\n");
         
         return semid;
     }
@@ -94,36 +69,7 @@
             printf("ERROR on semaphore removal\n");
             // do not exit in case of system call failure
         }
-        else
-            printf("Removed\n");
-        if((semctl(semid, 1, IPC_RMID, 0)) < 0)
-        {
-            printf("ERROR on semaphore removal\n");
-            // do not exit in case of system call failure
-        }
-        else
-            printf("Removed\n");
-        if((semctl(semid, 2, IPC_RMID, 0)) < 0)
-        {
-            printf("ERROR on semaphore removal\n");
-            // do not exit in case of system call failure
-        }
-        else
-            printf("Removed\n");
-        if((semctl(semid, 3, IPC_RMID, 0)) < 0)
-        {
-            printf("ERROR on semaphore removal\n");
-            // do not exit in case of system call failure
-        }
-        else
-            printf("Removed\n");
-        if((semctl(semid, 4, IPC_RMID, 0)) < 0)
-        {
-            printf("ERROR on semaphore removal\n");
-            // do not exit in case of system call failure
-        }
-        else
-            printf("Removed\n");
+             
     }
 
     void down(int semid, int no_of_sem)
@@ -133,9 +79,8 @@
         if((semop(semid, &down, 1)) < 0)
         {
             printf("ERROR in semop()\n");
-            _exit(getpid());
-        }else
-        printf("im down\n");
+            exit(getpid());
+        }
     }
     
     void up(int semid, int no_of_sem)
@@ -145,79 +90,57 @@
         if((semop(semid, &up, 1)) < 0)
         {
             printf("ERROR in semop()n");
-            _exit(getpid());
-        }else
-            printf("im up\n");
-
+            exit(getpid());
+        }
     }
     void init_semaphore_set(int semID) //initialise the semaphores
     {
         union semun arg;
         
-        // initialize semaphore to 1 => unlocked
         arg.val=1;
         if((semctl(semID, MUTEX1, SETVAL, arg)) < 0) // SETVAL = Setting the value of semval to arg.val 
         {
             printf("Error on intializing MUTEX\n");
-            _exit(1);
+            exit(1);
         }
-        else
-            printf("MUTEX successful\n");          //mutex 
-        arg.val=1;
-        if((semctl(semID, MUTEX2, SETVAL, arg)) < 0) // SETVAL = Setting the value of semval to arg.val 
+        
+        if((semctl(semID, MUTEX2, SETVAL, arg)) < 0) 
         {
             printf("Error on intializing MUTEX\n");
-            _exit(1);
+            exit(1);
         }
-        else
-            printf("MUTEX successful\n");          //mutex 
         
-        arg.val = 1;
-
-        // initialize semaphore to 1 => unlocked
-        if((semctl(semID, semWC, SETVAL, arg)) < 0)
+        if((semctl(semID, semWC, SETVAL, arg)) < 0) //consumer WRITE
         {
             printf("Error on intializing semC \n");
-            _exit(1);
-        }else
-            printf("semC successful\n");           //consumer semWriteC
+            exit(1);
+        }                                            
         
-
-        // initialize semaphore to 1 => unlocked
-        if((semctl(semID, semWP, SETVAL, arg)) < 0) //producer semWriteP
+        if((semctl(semID, semWP, SETVAL, arg)) < 0) //producer WRITE
         {
             printf("Error on intializing semP \n");
-            _exit(1);
-        }else
-            printf("semP successful\n");
+            exit(1);
+        }
 
         arg.val = 0;
-        // initialize semaphore to 1 => unlocked
         if ((semctl(semID, semRC, SETVAL, arg)) < 0)  //consumer READ
         {
             printf("Error intializing \n");
-        }else
-             printf("semRC successful\n");  
+            exit(1);
+        } 
         
-
-        // initialize semaphore to 1 => unlocked
         if ((semctl(semID, semRP , SETVAL, arg)) < 0) // producer READ
         {
             printf("Error intializing \n");
-        }else
-             printf("semRP successful\n");  
+            exit(1);
+
+        } 
     }
-int PID_MATCH = 0;
-    void sigintHandler(int sig_num) 
-        { 
-            /* Reset handler to catch SIGINT next time. 
-               Refer http://en.cppreference.com/w/c/program/signal */
+    int PID_MATCH = 0;
+    void sigintHandler(int sig_num) { 
             signal(SIGQUIT, sigintHandler); 
         }
-    void sigintHandler2(int sig_num) 
-        { 
-            /* Reset handler to catch SIGINT next time. 
-               Refer http://en.cppreference.com/w/c/program/signal */
+    void sigintHandler2(int sig_num) { 
             signal(SIGQUIT, sigintHandler); 
             printf("exit child %d\n", PID_MATCH);
             exit(PID_MATCH);
@@ -233,14 +156,14 @@ int PID_MATCH = 0;
       int i;
       int shmid;
       key_t key = 123456;
-      int num_of_childs, K; // poses diergasies P exw ,K = epanalipseis 
+      int num_of_childs, K;
       pid_t P;
       pid_t pid;
       msg prod[2];
       msg con[2];
       msg *shm;
-      //read file text.txt 
-      // text me md5 hash to steknw ston C
+      unsigned char digest[16];
+      char in[256];
 
       if (argc != 3) {
         printf("Error : You need to input 2 positive numbers for N and K\n");
@@ -248,43 +171,39 @@ int PID_MATCH = 0;
       }
       num_of_childs = atoi(argv[1]);
       K = atoi(argv[2]);
-      printf("i have %d child(s)\n", num_of_childs);
+      printf("STARTING THE PROGRAM WITH %d PROCESSES \n", num_of_childs);
 
-      //--------------------------------------------creating shared memory-----------------------------------------------------------------
+      //--------------------------------------------creating and attaching shared memory-----------------------------------------------------------------
 
       if ((shmid = shmget(key, 2*sizeof(msg), IPC_CREAT | 0666)) < 0) {
-        perror("shmget");
+        perror("ERROR on creating shared memory");
         exit(1);
         }
-        //shm = attach(shmid); // kanw attach stin memory
         if ((shm = shmat(shmid, NULL, 0)) == NULL) {
-            printf("ERROR on mem attach\n");
-            _exit(1);
+            printf("ERROR on memory attach\n");
+            exit(1);
         }
      //---------------------------------------------------creating the semaphores----------------------------------------------------------
 
-        SEMID=request_semaphore_set(6); //posoi simaforoi tha dimiourgithoun 
+        SEMID=request_semaphore_set(6); //creating 6 semaphores 
         init_semaphore_set(SEMID);
-        //remove_semaphore(SEMID);
+        
 
      //------------------------------------------------------------------------------------------------------------------------------------   
       for (int i = 0; i < num_of_childs; i++) {
-        // tha kanw fork gia num of childs
         P = fork();
         if (P == 0) {
           break;
-        }
-        printf("fork successful!\n");
-        
+        }     
       }
-      //ta processes P
+      //if (P == 0) is a child process
       if (P == 0) {
         signal(SIGQUIT, sigintHandler2);
         //PID_MATCH++;
         while(1){
         pid = getpid();
 
-        //--------------------------------------------------- code to read file ------------------------------------------------------------------
+    //--------------------------------------------------- getting a random file from text ----------------------------------------------
         srand(time(NULL));
         if (!(fp = fopen("atext.txt", "r"))) {
           printf("Error open input file\n");
@@ -301,11 +220,11 @@ int PID_MATCH = 0;
         
         rline = rand() % (flines + 1);
 
-        rewind(fp); // gia na paei stin arxi pali
+        rewind(fp); 
 
         for (i = 0; i < rline; ++i)
-        fgets(buf, sizeof(buf), fp); // to random str apothikevetai sto buf[100]
-        //------------------------------------------------------------------------------------------------------------------------------------------       
+        fgets(buf, sizeof(buf), fp); 
+        //------------------------------------------------------------------------------------------------------------------------------------
         
         prod[0].pid=pid;
         strncpy(prod[0].buf,buf,100);
@@ -313,14 +232,13 @@ int PID_MATCH = 0;
         ////////////////////////////
         down(SEMID,MUTEX1);
         down(SEMID,semWP); //MPAINW GIA NA KANW WRITE
-        printf("Producer %d Struct with pid %d and message is%s\n", pid, prod[0].pid, prod[0].buf);
+        printf("Producer %d Struct with pid %d and message is %s\n", pid, prod[0].pid, prod[0].buf);
 
         memcpy(&shm[0],&prod[0],sizeof(msg)); // kanw copy apo tin topiki mnimi stin shared mem
         ////////////////////////////                
         up(SEMID,semRC);
         up(SEMID,MUTEX1);
 
-        //sleep(5);
         
 
         printf("Wait for consumer\n");
@@ -339,63 +257,64 @@ int PID_MATCH = 0;
 
             for (int i = 0; i < K ; i++)
             {
-                    //sleep(1);
-                    down(SEMID,semRC); // O CONSUMER DIAVAZEI TO MINIMA
-                    memcpy(&con[0],&shm[0],sizeof(msg)); // pairnw apo tin shared mem to struct 
-                    printf("Consumer get Struct %d, %s\n", con[0].pid, con[0].buf);
-                    
-                    up(SEMID,semWP);
-                    //------------------------------------------------------- md5 the string -----------------------------------------------------------------
-
-                    //use unsigned char
-                    unsigned char digest[16];
-                    char in[256];
-                    strcpy(in,con[0].buf);
-                    //char *input = buf;
-                    int length = strlen(in) -1 ;
-                    int ii=0;
-
-                    // don't miss the underscore after MD5
-                    MD5_CTX md5;    
-                    MD5_Init(&md5);
-
-                    while (length > 0) {
-                        if (length > 512) {
-                            MD5_Update(&md5, in, 512);
-                        } else {
-                            MD5_Update(&md5, in, length);
-                        }
-                        length -= 512;
-                    }
-
-                    MD5_Final(digest, &md5);
-                    for(ii = 0; ii < 16; ii++) {
-                        //con->buf[ii]=digest[ii];
-                        sprintf(in+ii*2,"%02x", digest[ii]);
-                    }
-                    down(SEMID,semWC);
-                    strncpy(con[1].buf,in,100);
-                    con[1].pid = con[0].pid;
-                    printf("Consumer Write %d, %s\n",con[1].pid,con[1].buf);
-                    memcpy(&shm[1],&con[1],sizeof(msg)); // to kanw cpy stin topiki mnimi
-                    //sleep(3);
-                    up(SEMID,semRP);    
-        //----------------------------------------------------------------------------------------------------------------------------------------------------
-
+                down(SEMID,semRC); // O CONSUMER DIAVAZEI TO MINIMA
+                memcpy(&con[0],&shm[0],sizeof(msg)); // pairnw apo tin shared mem to struct 
+                printf("Consumer get Struct %d, %s\n", con[0].pid, con[0].buf);
                 
-            }
-            signal(SIGQUIT, sigintHandler);
-            kill(0,SIGQUIT);
-            int exit_pid_match=0;
-            int sum = 0;
-            for(int i=0; i<num_of_childs; i++){
-                waitpid(-1, &exit_pid_match,0);
-                sum+=WEXITSTATUS(exit_pid_match);
-            }
-            printf("%d\n", sum);
-        }           
-      //detach_shared_mem(shm);
-      //remove_shared_mem(shmid);
+                up(SEMID,semWP);
+                //------------------------------------------------------- md5 the string -----------------------------------------------------------------
+                strcpy(in,con[0].buf);
+                int length = strlen(in) -1 ;
+                int ii=0;
 
-        return 0;
+                MD5_CTX md5;    
+                MD5_Init(&md5);
+
+                while (length > 0) {
+                    if (length > 512) {
+                        MD5_Update(&md5, in, 512);
+                    } else {
+                        MD5_Update(&md5, in, length);
+                    }
+                    length -= 512;
+                }
+
+                MD5_Final(digest, &md5);
+                for(ii = 0; ii < 16; ii++) {
+                    sprintf(in+ii*2,"%02x", digest[ii]);
+                }
+                down(SEMID,semWC);
+                strncpy(con[1].buf,in,100);
+                con[1].pid = con[0].pid;
+                printf("Consumer Write %d, %s\n",con[1].pid,con[1].buf);
+                memcpy(&shm[1],&con[1],sizeof(msg)); // to kanw cpy stin topiki mnimi
+                up(SEMID,semRP);    
+                //----------------------------------------------------------------------------------------------------------------------------------------------------
+
+            
+        }
+                signal(SIGQUIT, sigintHandler);
+                kill(0,SIGQUIT);
+                int exit_pid_match=0;
+                int sum = 0;
+                for(int i=0; i<num_of_childs; i++){
+                    waitpid(-1, &exit_pid_match,0);
+                    sum+=WEXITSTATUS(exit_pid_match);
+                }
+                printf("%d\n", sum);
+            } 
+
+            sleep(3);
+            printf("THE STATISTICS ARE:\n");
+            printf("==========================================================\n");
+
+            printf("The number of P processes are: %d \n",num_of_childs);
+            printf("The sum of the pid_match is: \n");
+
+            printf("==========================================================\n");
+            remove_semaphore(SEMID);           
+          //detach_shared_mem(shm);
+          //remove_shared_mem(shmid);
+
+    return 0;
     }
